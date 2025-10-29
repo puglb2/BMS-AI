@@ -1,4 +1,4 @@
-// src/main.tsx
+// src/app.tsx
 import React, { useMemo, useState } from "react"
 import { createRoot } from "react-dom/client"
 
