@@ -1,8 +1,8 @@
 {
-  "name": "ams-intake-assistant",
+  "name": "bms-ai",
   "version": "1.0.0",
   "private": true,
-  "description": "AMS Intake Assistant - React + Vite app for mental health intake and provider matching",
+  "description": "BMS AI — membership package picker and provider-routing UI (React + Vite)",
   "author": "Your Team <you@example.com>",
   "license": "MIT",
   "type": "module",
@@ -35,4 +35,3 @@
     "npm": ">=8"
   }
 }
-
