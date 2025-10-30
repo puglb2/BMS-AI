@@ -5,7 +5,7 @@
   "description": "BMS AI — Membership Package Picker and Provider Routing (React + Vite + Express backend)",
   "author": "Your Team <you@example.com>",
   "license": "MIT",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "dev:web": "vite",
     "dev:api": "node chat/index.js",
