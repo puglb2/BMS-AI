@@ -1,20 +1,7 @@
-// src/App.tsx  (or src/app.tsx if you prefer lowercase)
+// src/App.tsx
 import React, { useMemo, useState } from "react"
 
 type Service = { id: string; label: string }
-type RankResult = {
-  package_id: string
-  package_name: string
-  monthly_price?: number
-  price_usd?: number
-  overage_cost?: number
-  total_cost?: number
-  over_units?: Record<string, number>
-  waste_units?: Record<string, number>
-  sessions_included?: number
-  need?: number
-  notes?: string
-}
 
 const DEFAULT_SERVICES: Service[] = [
   { id: "iv_therapy", label: "IV Therapy (sessions/mo)" },
@@ -66,6 +53,8 @@ export default function App() {
       setLoading(false)
     }
   }
+
+  function OptimizeButtonHandler(){ optimize() }
 
   return (
     <div style={{ maxWidth: 840, margin: "40px auto", padding: 16 }}>
@@ -124,7 +113,7 @@ export default function App() {
       {results && (
         <section style={{ marginTop: 20 }}>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>Recommended plan</h2>
-          {Object.entries(results.categories || {}).map(([key, entry]: any, i) => {
+          {Object.entries(results.categories || {}).map(([key, entry]: any) => {
             const s = entry?.suggestion
             return (
               <div key={key} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 14, marginTop: 10 }}>
@@ -153,17 +142,4 @@ export default function App() {
       )}
     </div>
   )
-
-  function OptimizeButtonHandler(){ optimize() }
 }
-Keep src/main.tsx minimal:
-
-tsx
-Copy code
-// src/main.tsx
-import React from "react"
-import { createRoot } from "react-dom/client"
-import App from "./App" // or "./app" to match your file name
-
-const el = document.getElementById("bms-ai-root")!
-createRoot(el).render(<App />)
