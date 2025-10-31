@@ -1,40 +1,36 @@
 // api/chat/index.js
-// Single-entry BMS AI backend: membership + service assistant (no optimize references)
+// Single-entry BMS AI backend: membership + services assistant (no optimize route)
 
 const fs = require("fs");
 const path = require("path");
 
-// Tunables
 const MAX_HISTORY_TURNS = 20;
 const DEFAULT_TEMP = 0.8;
 const DEFAULT_MAX_TOKENS = 1024;
 
-// Utilities
 const norm = (v) => (v || "").toString().trim();
-const readIfExists = (p) => {
-  try { return fs.readFileSync(p, "utf8"); } catch { return ""; }
-};
+const readIfExists = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
-// Globals (lazy-load)
 let SYS_PROMPT = "";
 let PACKAGES_TEXT = "";
 let PACKAGES = null;
 
 function initConfig() {
   if (SYS_PROMPT) return;
+
   const cfgDir = path.join(__dirname, "../_config");
   SYS_PROMPT = readIfExists(path.join(cfgDir, "system_prompt.txt")).trim();
 
   if (!SYS_PROMPT) {
     SYS_PROMPT = `
 You are BMS AI, a helpful assistant that explains and compares BMS memberships and service bundles.
-- Be concise, factual, and friendly.
-- If the user asks about pricing, use only data you actually have.
-- If unsure, say so and suggest how to confirm with staff.
-- Focus on IV therapy, medical massage, acupuncture, and similar wellness services.
+- Be concise and factual. If data is missing, say so clearly.
+- Focus on IV therapy, medical massage, acupuncture, shockwave, and similar services.
+- If the user gives quantities (e.g., "5 massages"), respond with guidance on memberships/bundles that might fit, based ONLY on available data.
 `.trim();
   }
 
+  // Load dataset (prefer JSON if present; otherwise keep YAML excerpt as context text)
   const rootYaml = path.resolve(process.cwd(), "packages.yaml");
   const rootJson = path.resolve(process.cwd(), "packages.json");
 
@@ -78,15 +74,27 @@ async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temp
 }
 
 module.exports = async function (context, req) {
-  // CORS
-  if ((req.method || "").toUpperCase() === "OPTIONS") {
+  const method = String(req.method || "").toUpperCase();
+
+  // CORS preflight
+  if (method === "OPTIONS") {
     context.res = {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST,OPTIONS",
+        "Access-Control-Allow-Methods": "POST,GET,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type"
       }
+    };
+    return;
+  }
+
+  // Quick GET sanity check
+  if (method === "GET") {
+    context.res = {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: { ok: true, route: "chat", note: "POST with {message,history} to chat." }
     };
     return;
   }
@@ -94,14 +102,14 @@ module.exports = async function (context, req) {
   try {
     initConfig();
 
-    const userMessage = norm(req.body?.message);
+    const message = norm(req.body?.message);
     const history = Array.isArray(req.body?.history) ? req.body.history : [];
     const normalizedHistory = history
       .slice(-MAX_HISTORY_TURNS)
       .map(m => ({ role: m?.role === "assistant" ? "assistant" : "user", content: norm(m?.content) }))
       .filter(m => m.content);
 
-    if (!userMessage) {
+    if (!message) {
       context.res = {
         status: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -110,7 +118,6 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Azure OpenAI env
     const apiVersion = norm(process.env.AZURE_OPENAI_API_VERSION || "2024-08-01-preview");
     const endpoint   = norm(process.env.AZURE_OPENAI_ENDPOINT || "");
     const deployment = norm(process.env.AZURE_OPENAI_DEPLOYMENT || "");
@@ -122,11 +129,20 @@ module.exports = async function (context, req) {
     const messages = [
       { role: "system", content: systemContent },
       ...normalizedHistory,
-      { role: "user", content: userMessage }
+      { role: "user", content: message }
     ];
 
-    const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
+    // If OpenAI not configured yet, friendly fallback
+    if (!endpoint || !deployment || !apiKey) {
+      context.res = {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: { reply: "Hi! I can help you understand BMS memberships and service packages. What are you looking for?" }
+      };
+      return;
+    }
 
+    const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
     if (!resp.ok) {
       context.res = {
         status: resp.status,
