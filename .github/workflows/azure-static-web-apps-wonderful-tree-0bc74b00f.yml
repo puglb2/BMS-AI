@@ -5,7 +5,7 @@ on:
   pull_request: { types: [opened, synchronize, reopened, closed], branches: [ main ] }
 
 env:
-  APP_LOCATION: "."      # "/" for repo root; or "web" if your frontend is in ./web
+  APP_LOCATION: "/"      # "/" for repo root; or "web" if your frontend is in ./web
   API_LOCATION: "api"    # "" if you don't have Functions
   OUTPUT_LOCATION: "dist"
 
@@ -39,3 +39,4 @@ jobs:
           api_location: ${{ env.API_LOCATION }}
           # Make it explicit so Oryx runs npm + build:
           app_build_command: "npm install && npm run build"
+
