@@ -193,16 +193,6 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // If model not configured (normal POST), send a friendly fallback
-    if (!endpoint || !deployment || !apiKey) {
-      context.res = {
-        status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: { reply: "Hi! I can help you understand BMS membership and service packages. What are you looking for?" }
-      };
-      return;
-    }
-
     // Call AOAI
     const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
     if (!resp.ok) {
