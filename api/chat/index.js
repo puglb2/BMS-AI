@@ -125,16 +125,6 @@ module.exports = async function (context, req) {
       { role: "user", content: userMessage }
     ];
 
-    // If model not configured, fallback text
-    if (!endpoint || !deployment || !apiKey) {
-      context.res = {
-        status: 200,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: { reply: "Hi! I can help you understand BMS membership and service packages. Tell me what you’d like to learn about." }
-      };
-      return;
-    }
-
     const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
 
     if (!resp.ok) {
