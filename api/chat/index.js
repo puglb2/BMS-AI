@@ -1,5 +1,5 @@
 // api/chat/index.js
-// Single-entry BMS AI backend: membership + services assistant (no optimize route)
+// Single-entry BMS AI backend with debug mode (?debug=1)
 
 const fs = require("fs");
 const path = require("path");
@@ -7,6 +7,7 @@ const path = require("path");
 const MAX_HISTORY_TURNS = 20;
 const DEFAULT_TEMP = 0.8;
 const DEFAULT_MAX_TOKENS = 1024;
+const DEBUG_PREVIEW_LINES = 16;
 
 const norm = (v) => (v || "").toString().trim();
 const readIfExists = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
@@ -30,7 +31,6 @@ You are BMS AI, a helpful assistant that explains and compares BMS memberships a
 `.trim();
   }
 
-  // Load dataset (prefer JSON if present; otherwise keep YAML excerpt as context text)
   const rootYaml = path.resolve(process.cwd(), "packages.yaml");
   const rootJson = path.resolve(process.cwd(), "packages.json");
 
@@ -75,6 +75,7 @@ async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temp
 
 module.exports = async function (context, req) {
   const method = String(req.method || "").toUpperCase();
+  const isDebug = norm(req.query?.debug) === "1";
 
   // CORS preflight
   if (method === "OPTIONS") {
@@ -89,19 +90,47 @@ module.exports = async function (context, req) {
     return;
   }
 
-  // Quick GET sanity check
-  if (method === "GET") {
-    context.res = {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: { ok: true, route: "chat", note: "POST with {message,history} to chat." }
-    };
-    return;
-  }
-
   try {
     initConfig();
 
+    // Always allow a quick GET probe; if debug=1, return diagnostics immediately
+    if (method === "GET" && isDebug) {
+      const apiVersion = norm(process.env.AZURE_OPENAI_API_VERSION || "");
+      const endpoint   = norm(process.env.AZURE_OPENAI_ENDPOINT || "");
+      const deployment = norm(process.env.AZURE_OPENAI_DEPLOYMENT || "");
+      const apiKey     = norm(process.env.AZURE_OPENAI_API_KEY || "");
+
+      const packagesPreview = PACKAGES
+        ? Object.keys(PACKAGES).slice(0, 12)
+        : (PACKAGES_TEXT ? PACKAGES_TEXT.split("\n").slice(0, DEBUG_PREVIEW_LINES) : []);
+
+      context.res = {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: {
+          ok: true,
+          route: "chat",
+          debug: true,
+          env: {
+            aoaiConfigured: Boolean(endpoint && deployment && apiKey),
+            apiVersion,
+            endpointPresent: Boolean(endpoint),
+            deploymentPresent: Boolean(deployment),
+            apiKeyPresent: Boolean(apiKey)
+          },
+          files_present: {
+            system_prompt: Boolean(SYS_PROMPT),
+            packages_yaml: Boolean(PACKAGES_TEXT),
+            packages_json: Boolean(PACKAGES)
+          },
+          packages_preview: packagesPreview,
+          note: "POST with {message,history} to run the chat; GET here only returns diagnostics."
+        }
+      };
+      return;
+    }
+
+    // POST flow (normal or debug)
     const message = norm(req.body?.message);
     const history = Array.isArray(req.body?.history) ? req.body.history : [];
     const normalizedHistory = history
@@ -109,7 +138,7 @@ module.exports = async function (context, req) {
       .map(m => ({ role: m?.role === "assistant" ? "assistant" : "user", content: norm(m?.content) }))
       .filter(m => m.content);
 
-    if (!message) {
+    if (!message && !isDebug) {
       context.res = {
         status: 400,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -129,19 +158,52 @@ module.exports = async function (context, req) {
     const messages = [
       { role: "system", content: systemContent },
       ...normalizedHistory,
-      { role: "user", content: message }
+      ...(message ? [{ role: "user", content: message }] : [])
     ];
 
-    // If OpenAI not configured yet, friendly fallback
-    if (!endpoint || !deployment || !apiKey) {
+    // If debug=1 on POST, return diagnostics PLUS a small dry-run status (no LLM call)
+    if (isDebug && !endpoint) {
+      const packagesPreview = PACKAGES
+        ? Object.keys(PACKAGES).slice(0, 12)
+        : (PACKAGES_TEXT ? PACKAGES_TEXT.split("\n").slice(0, DEBUG_PREVIEW_LINES) : []);
       context.res = {
         status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        body: { reply: "Hi! I can help you understand BMS memberships and service packages. What are you looking for?" }
+        body: {
+          ok: true,
+          debug: true,
+          will_call_llm: false,
+          reason: "Azure OpenAI not configured (endpoint/deployment/key missing).",
+          env: {
+            apiVersion,
+            endpointPresent: Boolean(endpoint),
+            deploymentPresent: Boolean(deployment),
+            apiKeyPresent: Boolean(apiKey)
+          },
+          messages_preview: messages.slice(0, 3),
+          history_len: normalizedHistory.length,
+          files_present: {
+            system_prompt: Boolean(SYS_PROMPT),
+            packages_yaml: Boolean(PACKAGES_TEXT),
+            packages_json: Boolean(PACKAGES)
+          },
+          packages_preview: packagesPreview
+        }
       };
       return;
     }
 
+    // If model not configured (normal POST), send a friendly fallback
+    if (!endpoint || !deployment || !apiKey) {
+      context.res = {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: { reply: "Hi! I can help you understand BMS membership and service packages. What are you looking for?" }
+      };
+      return;
+    }
+
+    // Call AOAI
     const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
     if (!resp.ok) {
       context.res = {
@@ -155,10 +217,21 @@ module.exports = async function (context, req) {
     const choice = Array.isArray(data?.choices) ? data.choices[0] : undefined;
     const reply = norm(choice?.message?.content) || "(no reply received)";
 
+    // Normal or debug POST response with reply
+    const body = isDebug
+      ? {
+          ok: true,
+          debug: true,
+          reply,
+          usage: data?.usage,
+          history_len: normalizedHistory.length
+        }
+      : { reply };
+
     context.res = {
       status: 200,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      body: { reply }
+      body
     };
   } catch (e) {
     context.res = {
