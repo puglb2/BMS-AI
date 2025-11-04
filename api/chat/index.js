@@ -4,9 +4,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const MAX_HISTORY_TURNS = 10;       // ↓ tighter history to save tokens
+const MAX_HISTORY_TURNS = 20;       // ↓ tighter history to save tokens
 const DEFAULT_TEMP = 1;
-const DEFAULT_MAX_TOKENS = 512;     // ↓ smaller model output to stay under total limits
+const DEFAULT_MAX_TOKENS = 2048;     // ↓ smaller model output to stay under total limits
 const DEBUG_PREVIEW_LINES = 16;
 
 // Hard budgets for dataset context (controls *prompt tokens*)
