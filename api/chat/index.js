@@ -9,10 +9,6 @@ const DEFAULT_TEMP = 1;
 const DEFAULT_MAX_TOKENS = 2048;     // ↓ smaller model output to stay under total limits
 const DEBUG_PREVIEW_LINES = 16;
 
-// Hard budgets for dataset context (controls *prompt tokens*)
-const PKG_CHAR_BUDGET  = 1200;      // ~1.2k chars max from packages
-const PKG_LINES_BUDGET = 30;        // cap lines in context
-
 const norm = (v) => (v || "").toString().trim();
 const readIfExists = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
