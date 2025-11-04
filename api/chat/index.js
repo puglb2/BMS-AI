@@ -1,34 +1,42 @@
 // api/chat/index.js
-// BMS AI backend with debug mode (?debug=1) and TOKEN-SAFE dataset filtering
+// BMS AI backend with strict prompt budgeting + hard stop token (no "fallbacks" — forces shorter outputs)
 
 const fs = require("fs");
 const path = require("path");
 
-const MAX_HISTORY_TURNS = 20;       // ↓ tighter history to save tokens
-const DEFAULT_TEMP = 1;
-const DEFAULT_MAX_TOKENS = 2048;     // ↓ smaller model output to stay under total limits
-const DEBUG_PREVIEW_LINES = 16;
+// ===== Tunables (token discipline) =====
+const MAX_HISTORY_TURNS = 8;         // shorter history → smaller prompt
+const DEFAULT_TEMP = 1;              // your requirement
+const DEFAULT_MAX_TOKENS = 2048;     // keep long *possible* output; we'll stop early with END_TOKEN
 
-const PKG_CHAR_BUDGET  = 5000; // was 1200
-const PKG_LINES_BUDGET = 50;   // was 30
+// Dataset prompt budgets (trim prompt tokens)
+const PKG_CHAR_BUDGET  = 1000;       // ~1k chars from packages max
+const PKG_LINES_BUDGET = 24;         // hard cap on lines included
 
+// Output-length governance (forces shorter completions)
+const LENGTH_PROFILE = {
+  firstTurn:  "≤6 bullets, ≤140 words total.",
+  laterTurns: "≤4 bullets, ≤120 words total."
+};
+const END_TOKEN = "<END>";           // we tell model to end with this; we also set stop: [END_TOKEN]
+
+// ===== Utils =====
 const norm = (v) => (v || "").toString().trim();
 const readIfExists = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
+// ===== Globals =====
 let SYS_PROMPT = "";
 let PACKAGES_TEXT = "";   // raw YAML (if present)
-let PACKAGES = null;      // parsed JSON (if present)
+let PACKAGES = null;      // JSON (if present)
 
-// -------------------------
-// INIT: read prompt + data
-// -------------------------
+// ===== Config load (API-bundled files first) =====
 function initConfig() {
   if (SYS_PROMPT) return;
 
   const cfgDir  = path.join(__dirname, "../_config");
   const dataDir = path.join(__dirname, "../_data");
 
-  // Prompt file (preferred)
+  // System prompt
   SYS_PROMPT = readIfExists(path.join(cfgDir, "system_prompt.txt")).trim();
   if (!SYS_PROMPT) {
     SYS_PROMPT = `
@@ -38,8 +46,10 @@ You are BMS AI, a helpful assistant that explains and compares BMS memberships a
 - If the user gives quantities (e.g., "5 massages"), respond with guidance on memberships/bundles that might fit, based ONLY on available data.
 `.trim();
   }
+  // Safety belt on very long prompts
+  if (SYS_PROMPT.length > 1200) SYS_PROMPT = SYS_PROMPT.slice(0, 1200);
 
-  // Data files (prefer api/_data, fallback to repo root if not found)
+  // Data files (prefer api/_data, fallback to repo root)
   let rootYaml = path.join(dataDir, "packages.yaml");
   let rootJson = path.join(dataDir, "packages.json");
   if (!fs.existsSync(rootYaml) && !fs.existsSync(rootJson)) {
@@ -52,34 +62,26 @@ You are BMS AI, a helpful assistant that explains and compares BMS memberships a
     try { PACKAGES = JSON.parse(txt); } catch { PACKAGES = null; }
     PACKAGES_TEXT = "";
   } else {
-    // YAML raw text (we won’t parse to keep deps 0)
     PACKAGES_TEXT = readIfExists(rootYaml);
   }
 }
 
-// -------------------------
-// SMALL, RELEVANT CONTEXT
-// -------------------------
-
-// Keyword map → which category/terms we’ll include
+// ===== Relevance filtering for package context (shrinks prompt) =====
 const CATEGORY_KEYWORDS = [
-  { key: "iv",          rx: /\b(iv|drip|infusion|nad\+?)\b/i,              cats: ["iv_therapy","iv","nad"] },
-  { key: "nad",         rx: /\bnad\+?\b/i,                                 cats: ["iv_therapy","nad"] },
-  { key: "massage",     rx: /\b(massage|medical\s*massage)\b/i,            cats: ["medical_massage","massage"] },
-  { key: "acupuncture", rx: /\b(acupuncture|acu|tcm)\b/i,                  cats: ["acupuncture"] },
-  { key: "shockwave",   rx: /\b(shock\s*wave|shockwave|eswt)\b/i,          cats: ["shockwave","extracorporeal"] },
-  // generic quantity/visit words help pull packages instead of memberships-only answers
+  { key: "iv",          rx: /\b(iv|drip|infusion|nad\+?)\b/i,               cats: ["iv_therapy","iv","nad"] },
+  { key: "nad",         rx: /\bnad\+?\b/i,                                  cats: ["iv_therapy","nad"] },
+  { key: "massage",     rx: /\b(massage|medical\s*massage)\b/i,             cats: ["medical_massage","massage"] },
+  { key: "acupuncture", rx: /\b(acupuncture|acu|tcm)\b/i,                   cats: ["acupuncture"] },
+  { key: "shockwave",   rx: /\b(shock\s*wave|shockwave|eswt)\b/i,           cats: ["shockwave","extracorporeal"] },
   { key: "quantity",    rx: /\b(pack(age|s)?|bundle|sessions?|visits?)\b/i, cats: ["iv_therapy","medical_massage","acupuncture","shockwave"] }
 ];
 
-// Build a tiny catalog summary (used when we can’t match anything confidently)
 function buildCatalogSummary() {
   if (PACKAGES && typeof PACKAGES === "object") {
     const cats = Object.keys(PACKAGES);
     return `# Catalog\n${cats.slice(0,8).join(", ")}${cats.length>8?" ...":""}`;
   }
   if (PACKAGES_TEXT) {
-    // Extract likely top-level YAML keys (lines without indentation ending with ':')
     const lines = PACKAGES_TEXT.split(/\r?\n/);
     const keys = [];
     for (const l of lines) {
@@ -92,7 +94,6 @@ function buildCatalogSummary() {
   return "# Catalog\n(no data loaded)";
 }
 
-// Truncate helpers
 function hardCapLines(lines, maxLines, maxChars) {
   const out = [];
   let used = 0;
@@ -105,33 +106,23 @@ function hardCapLines(lines, maxLines, maxChars) {
   return out;
 }
 
-// Build a compact, **filtered** context based on the user message
 function buildPackagesContextFiltered(userMessage = "", historyLen = 0) {
   const msg = (userMessage || "").toLowerCase();
-
-  // Decide which categories to include
   let catHints = new Set();
   for (const def of CATEGORY_KEYWORDS) {
     if (def.rx.test(msg)) def.cats.forEach(c => catHints.add(c));
   }
-
-  // On very first turn with no clear signal, keep context tiny
   const minimalFirstTurn = historyLen === 0 && catHints.size === 0;
 
-  // If we have structured JSON, emit compact lines for matched categories/items
   if (PACKAGES && typeof PACKAGES === "object") {
     const lines = [];
     const cats = Object.keys(PACKAGES);
-
     const pickCats = catHints.size ? cats.filter(c => catHints.has(c.toLowerCase())) : cats;
 
     for (const cat of pickCats) {
       const items = Array.isArray(PACKAGES[cat]) ? PACKAGES[cat] : [];
       if (!items.length) continue;
-
-      // Header for category
       lines.push(`# ${cat}`);
-
       for (const it of items) {
         const name  = (it.name || "").toString().trim();
         const price = (it.price || "").toString().trim();
@@ -140,70 +131,54 @@ function buildPackagesContextFiltered(userMessage = "", historyLen = 0) {
         lines.push(`- ${name}${price ? " | "+price : ""} | ${type}${perks}`);
       }
     }
-
     const capped = hardCapLines(lines, PKG_LINES_BUDGET, PKG_CHAR_BUDGET);
-    if (capped.length === 0 || minimalFirstTurn) {
-      // Fall back to tiny catalog
-      return buildCatalogSummary();
-    }
+    if (capped.length === 0 || minimalFirstTurn) return buildCatalogSummary();
     return capped.join("\n");
   }
 
-  // Otherwise, we have raw YAML text: filter by keywords & cap hard
   if (PACKAGES_TEXT) {
     const all = PACKAGES_TEXT.split(/\r?\n/);
-
     let selected = [];
     if (catHints.size) {
       const termRx = new RegExp(
         Array.from(catHints).map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
         "i"
       );
-      for (const l of all) {
-        if (termRx.test(l)) selected.push(l);
-      }
-      if (selected.length < 6) {
-        // include nearby lines to give context
-        selected = [];
-        for (let i = 0; i < all.length; i++) {
-          if (termRx.test(all[i])) {
-            selected.push(
-              ...all.slice(Math.max(0, i-2), Math.min(all.length, i+3))
-            );
-          }
+      for (let i = 0; i < all.length; i++) {
+        if (termRx.test(all[i])) {
+          selected.push(...all.slice(Math.max(0, i-2), Math.min(all.length, i+3)));
         }
       }
     }
-
     const linesToUse = (selected.length ? selected : all);
     const capped = hardCapLines(linesToUse, PKG_LINES_BUDGET, PKG_CHAR_BUDGET);
-    if (capped.length === 0 || minimalFirstTurn) {
-      return buildCatalogSummary();
-    }
+    if (capped.length === 0 || minimalFirstTurn) return buildCatalogSummary();
     return ["# Packages (filtered excerpt)", "```yaml", ...capped, "```"].join("\n");
   }
 
   return "# Packages: (none loaded)";
 }
 
-// -------------------------
-// AOAI call
-// -------------------------
+// ===== AOAI call (with stop sequence) =====
 async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temperature, maxTokens) {
   const url = `${endpoint.replace(/\/+$/,"")}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "api-key": apiKey },
-    body: JSON.stringify({ messages, temperature, max_completion_tokens: maxTokens })
+    body: JSON.stringify({
+      messages,
+      temperature,
+      max_completion_tokens: maxTokens,
+      stop: [END_TOKEN],            // <-- hard stop
+      frequency_penalty: 0.3        // <-- reduce rambling
+    })
   });
   const ct = resp.headers.get("content-type") || "";
   const data = ct.includes("application/json") ? await resp.json() : { text: await resp.text() };
   return { resp, data };
 }
 
-// -------------------------
-// HTTP handler
-// -------------------------
+// ===== HTTP handler =====
 module.exports = async function (context, req) {
   const method = String(req.method || "").toUpperCase();
   const isDebug = norm(req.query?.debug) === "1";
@@ -224,7 +199,7 @@ module.exports = async function (context, req) {
   try {
     initConfig();
 
-    // GET + debug -> diagnostics
+    // GET + debug → diagnostics
     if (method === "GET" && isDebug) {
       const apiVersion = norm(process.env.AZURE_OPENAI_API_VERSION || "");
       const endpoint   = norm(process.env.AZURE_OPENAI_ENDPOINT || "");
@@ -233,7 +208,7 @@ module.exports = async function (context, req) {
 
       const packagesPreview = PACKAGES
         ? Object.keys(PACKAGES).slice(0, 12)
-        : (PACKAGES_TEXT ? PACKAGES_TEXT.split("\n").slice(0, DEBUG_PREVIEW_LINES) : []);
+        : (PACKAGES_TEXT ? PACKAGES_TEXT.split("\n").slice(0, 16) : []);
 
       context.res = {
         status: 200,
@@ -263,7 +238,14 @@ module.exports = async function (context, req) {
 
     // POST flow
     const message = norm(req.body?.message);
-    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    let history = Array.isArray(req.body?.history) ? req.body.history : [];
+    // Soft compress earlier turns (prevents prompt creep on turn ≥3)
+    if (history.length > 8) {
+      history = [
+        { role: "assistant", content: "Summarized earlier discussion: user comparing IV therapy, ~10 massages, considering acupuncture." },
+        ...history.slice(-6)
+      ];
+    }
     const normalizedHistory = history
       .slice(-MAX_HISTORY_TURNS)
       .map(m => ({ role: m?.role === "assistant" ? "assistant" : "user", content: norm(m?.content) }))
@@ -283,9 +265,17 @@ module.exports = async function (context, req) {
     const deployment = norm(process.env.AZURE_OPENAI_DEPLOYMENT || "");
     const apiKey     = norm(process.env.AZURE_OPENAI_API_KEY || "");
 
-    // Build **filtered** dataset context based on user message
+    // Build **filtered** dataset + strict length guard
     const pkgContext = buildPackagesContextFiltered(message, normalizedHistory.length);
-    const systemContent = [SYS_PROMPT, "", pkgContext].join("\n");
+    const isFirst = normalizedHistory.length === 0;
+    const lengthGuard = `
+# LENGTH & STYLE
+- ${isFirst ? LENGTH_PROFILE.firstTurn : LENGTH_PROFILE.laterTurns}
+- Use compact bullets; no preambles/disclaimers.
+- Do not restate the full catalog unless asked.
+- End your reply with ${END_TOKEN} and nothing after it.`.trim();
+
+    const systemContent = [SYS_PROMPT, lengthGuard, pkgContext].join("\n\n");
 
     const messages = [
       { role: "system", content: systemContent },
@@ -294,7 +284,6 @@ module.exports = async function (context, req) {
     ];
 
     if (isDebug && (!endpoint || !deployment || !apiKey)) {
-      // Early return with diagnostics; do not call LLM
       context.res = {
         status: 200,
         headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
@@ -317,7 +306,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Call AOAI
+    // Call AOAI (with stop token to force short outputs)
     const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
     if (!resp.ok) {
       context.res = {
@@ -329,16 +318,12 @@ module.exports = async function (context, req) {
     }
 
     const choice = Array.isArray(data?.choices) ? data.choices[0] : undefined;
-    const reply = norm(choice?.message?.content) || "(no reply received)";
+    let reply = norm(choice?.message?.content || "");
+    if (reply.endsWith(END_TOKEN)) reply = reply.slice(0, -END_TOKEN.length).trim();
+    if (!reply) reply = "Sorry — the response was cut off. Ask again and I’ll keep it concise.";
 
     const body = isDebug
-      ? {
-          ok: true,
-          debug: true,
-          reply,
-          usage: data?.usage,
-          history_len: normalizedHistory.length
-        }
+      ? { ok: true, debug: true, reply, usage: data?.usage, history_len: normalizedHistory.length }
       : { reply };
 
     context.res = {
@@ -354,3 +339,4 @@ module.exports = async function (context, req) {
     };
   }
 };
+
