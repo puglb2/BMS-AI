@@ -1,5 +1,5 @@
 // api/chat/index.js
-// BMS AI backend with strict prompt budgeting + hard stop token (no "fallbacks" — forces shorter outputs)
+// BMS AI backend with strict prompt budgeting; no unsupported params (no stop/penalties)
 
 const fs = require("fs");
 const path = require("path");
@@ -7,18 +7,18 @@ const path = require("path");
 // ===== Tunables (token discipline) =====
 const MAX_HISTORY_TURNS = 8;         // shorter history → smaller prompt
 const DEFAULT_TEMP = 1;              // your requirement
-const DEFAULT_MAX_TOKENS = 2048;     // keep long *possible* output; we'll stop early with END_TOKEN
+const DEFAULT_MAX_TOKENS = 2048;     // keep long *possible* output; we constrain with instructions
 
 // Dataset prompt budgets (trim prompt tokens)
 const PKG_CHAR_BUDGET  = 1000;       // ~1k chars from packages max
 const PKG_LINES_BUDGET = 24;         // hard cap on lines included
 
-// Output-length governance (forces shorter completions)
+// Output-length governance (instructional, since 'stop' unsupported by your model)
 const LENGTH_PROFILE = {
   firstTurn:  "≤6 bullets, ≤140 words total.",
   laterTurns: "≤4 bullets, ≤120 words total."
 };
-const END_TOKEN = "<END>";           // we tell model to end with this; we also set stop: [END_TOKEN]
+const END_TOKEN = "<END>"; // advisory marker; we’ll trim if present
 
 // ===== Utils =====
 const norm = (v) => (v || "").toString().trim();
@@ -159,7 +159,7 @@ function buildPackagesContextFiltered(userMessage = "", historyLen = 0) {
   return "# Packages: (none loaded)";
 }
 
-// ===== AOAI call (with stop sequence) =====
+// ===== AOAI call (no unsupported params) =====
 async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temperature, maxTokens) {
   const url = `${endpoint.replace(/\/+$/,"")}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
   const resp = await fetch(url, {
@@ -168,8 +168,8 @@ async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temp
     body: JSON.stringify({
       messages,
       temperature,
-      max_completion_tokens: maxTokens,
-      stop: [END_TOKEN],            // <-- hard stop
+      max_completion_tokens: maxTokens
+      // NOTE: no 'stop', no penalties — your model doesn't support them
     })
   });
   const ct = resp.headers.get("content-type") || "";
@@ -264,7 +264,7 @@ module.exports = async function (context, req) {
     const deployment = norm(process.env.AZURE_OPENAI_DEPLOYMENT || "");
     const apiKey     = norm(process.env.AZURE_OPENAI_API_KEY || "");
 
-    // Build **filtered** dataset + strict length guard
+    // Build **filtered** dataset + length guidance (instructional)
     const pkgContext = buildPackagesContextFiltered(message, normalizedHistory.length);
     const isFirst = normalizedHistory.length === 0;
     const lengthGuard = `
@@ -305,7 +305,7 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Call AOAI (with stop token to force short outputs)
+    // Call AOAI
     const { resp, data } = await callAOAI(endpoint, deployment, apiVersion, apiKey, messages, DEFAULT_TEMP, DEFAULT_MAX_TOKENS);
     if (!resp.ok) {
       context.res = {
@@ -318,6 +318,7 @@ module.exports = async function (context, req) {
 
     const choice = Array.isArray(data?.choices) ? data.choices[0] : undefined;
     let reply = norm(choice?.message?.content || "");
+    // If model honored END_TOKEN, strip it
     if (reply.endsWith(END_TOKEN)) reply = reply.slice(0, -END_TOKEN.length).trim();
     if (!reply) reply = "Sorry — the response was cut off. Ask again and I’ll keep it concise.";
 
@@ -338,4 +339,3 @@ module.exports = async function (context, req) {
     };
   }
 };
-
