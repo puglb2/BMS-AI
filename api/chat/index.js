@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 
 const MAX_HISTORY_TURNS = 20;
-const DEFAULT_TEMP = 0.8;
+const DEFAULT_TEMP = 1;
 const DEFAULT_MAX_TOKENS = 1024;
 const DEBUG_PREVIEW_LINES = 16;
 
