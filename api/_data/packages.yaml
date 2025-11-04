@@ -1,33 +1,41 @@
-IV Therapy Packages
-  IV Therapy
-  Four NAD + Infusions	$ 1,280
+iv_therapy:
+  - name: "6-Month IV Therapy Membership"
+    price: "$130 per month"
+    includes:
+      - "1 Standard IV of your choice (monthly)"
+      - "1 B12 or Vitamin D injection (monthly)"
+    perks:
+      - "20% off NAD"
+      - "20% off all Strata Med Services"
+      - "10% off retail"
+      - "Priority booking"
 
-Medical Massage Packages
-  South Location Medical Massage
-  Ten 60-minute Sessions (15% Discount)	$ 1,275
+  - name: "Four NAD+ Infusions"
+    price: "$1,280"
+    type: "package"
+    includes:
+      - "4 x NAD+ infusions"
 
-  South Location Medical Massage
-  Five 60-minute Sessions (12% Discount)	$ 660
+medical_massage:
+  - name: "Ten 60-minute Sessions (South) — 15% off"
+    price: "$1,275"
+    type: "package"
+  - name: "Five 60-minute Sessions (South) — 12% off"
+    price: "$660"
+    type: "package"
+  - name: "Five 60-minute Sessions (North)"
+    price: "$500"
+    type: "package"
 
-  North Location Medical Massage
-  Five 60-minute Sessions	$ 500
+shockwave:
+  - name: "Shock Wave Therapy — Six 30-minute Sessions — 15% off"
+    price: "$783"
+    type: "package"
 
-Extracorporeal Shock Wave Therapy Packages
-  Extracorporeal Shock Wave Therapy
-  Six 30-minute Sessions (15% Discount)	$ 783
-
-Acupuncture Medicine Packages
-  Acupuncture Medicine
-  Twelve 60-minute Sessions (25% Discount)	$ 1,080
-
-  Acupuncture Medicine
-  Six 60-minute Sessions (20% Discount)	$ 576
-
-6 MONTH IV therapy MEMBERSHIP
-  1 Standard IV of your choice
-  1 B12 or VitD injection
-  20% off NAD
-  20% off all Strata Med Services
-  10% off Retail
-  Priority Booking
-  $130 per month
+acupuncture:
+  - name: "Twelve 60-minute Sessions — 25% off"
+    price: "$1,080"
+    type: "package"
+  - name: "Six 60-minute Sessions — 20% off"
+    price: "$576"
+    type: "package"
