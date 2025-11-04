@@ -9,6 +9,9 @@ const DEFAULT_TEMP = 1;
 const DEFAULT_MAX_TOKENS = 2048;     // ↓ smaller model output to stay under total limits
 const DEBUG_PREVIEW_LINES = 16;
 
+const PKG_CHAR_BUDGET  = 5000; // was 1200
+const PKG_LINES_BUDGET = 50;   // was 30
+
 const norm = (v) => (v || "").toString().trim();
 const readIfExists = (p) => { try { return fs.readFileSync(p, "utf8"); } catch { return ""; } };
 
