@@ -170,7 +170,6 @@ async function callAOAI(endpoint, deployment, apiVersion, apiKey, messages, temp
       temperature,
       max_completion_tokens: maxTokens,
       stop: [END_TOKEN],            // <-- hard stop
-      frequency_penalty: 0.3        // <-- reduce rambling
     })
   });
   const ct = resp.headers.get("content-type") || "";
