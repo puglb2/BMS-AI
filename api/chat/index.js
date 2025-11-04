@@ -5,13 +5,13 @@ const fs = require("fs");
 const path = require("path");
 
 // ===== Tunables (token discipline) =====
-const MAX_HISTORY_TURNS = 8;         // shorter history → smaller prompt
+const MAX_HISTORY_TURNS = 12;         // shorter history → smaller prompt
 const DEFAULT_TEMP = 1;              // your requirement
-const DEFAULT_MAX_TOKENS = 2048;     // keep long *possible* output; we constrain with instructions
+const DEFAULT_MAX_TOKENS = 4096;     // keep long *possible* output; we constrain with instructions
 
 // Dataset prompt budgets (trim prompt tokens)
-const PKG_CHAR_BUDGET  = 1000;       // ~1k chars from packages max
-const PKG_LINES_BUDGET = 24;         // hard cap on lines included
+const PKG_CHAR_BUDGET  = 5000;       // ~1k chars from packages max
+const PKG_LINES_BUDGET = 30;         // hard cap on lines included
 
 // Output-length governance (instructional, since 'stop' unsupported by your model)
 const LENGTH_PROFILE = {
