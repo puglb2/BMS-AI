@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 
 const MAX_HISTORY_TURNS = 20;
-const DEFAULT_TEMP = 1;
+const DEFAULT_TEMP = 1;            // locked to 1 per your requirement
 const DEFAULT_MAX_TOKENS = 1024;
 const DEBUG_PREVIEW_LINES = 16;
 
@@ -19,7 +19,11 @@ let PACKAGES = null;
 function initConfig() {
   if (SYS_PROMPT) return;
 
-  const cfgDir = path.join(__dirname, "../_config");
+  // --- NEW: use API-bundled files first ---
+  const cfgDir  = path.join(__dirname, "../_config");
+  const dataDir = path.join(__dirname, "../_data");
+
+  // System prompt (api/_config/system_prompt.txt)
   SYS_PROMPT = readIfExists(path.join(cfgDir, "system_prompt.txt")).trim();
 
   if (!SYS_PROMPT) {
@@ -31,8 +35,15 @@ You are BMS AI, a helpful assistant that explains and compares BMS memberships a
 `.trim();
   }
 
-  const rootYaml = path.resolve(process.cwd(), "packages.yaml");
-  const rootJson = path.resolve(process.cwd(), "packages.json");
+  // Memberships/packages data (prefer api/_data, then fallback to repo root)
+  let rootYaml = path.join(dataDir, "packages.yaml");
+  let rootJson = path.join(dataDir, "packages.json");
+
+  if (!fs.existsSync(rootYaml) && !fs.existsSync(rootJson)) {
+    // optional fallback to repo root to support older layout
+    rootYaml = path.resolve(process.cwd(), "packages.yaml");
+    rootJson = path.resolve(process.cwd(), "packages.json");
+  }
 
   if (fs.existsSync(rootJson)) {
     const txt = readIfExists(rootJson);
@@ -161,8 +172,8 @@ module.exports = async function (context, req) {
       ...(message ? [{ role: "user", content: message }] : [])
     ];
 
-    // If debug=1 on POST, return diagnostics PLUS a small dry-run status (no LLM call)
-    if (isDebug && !endpoint) {
+    // If debug=1 on POST, return diagnostics PLUS a small dry-run status (no LLM call) when ANY key piece is missing
+    if (isDebug && (!endpoint || !deployment || !apiKey)) {
       const packagesPreview = PACKAGES
         ? Object.keys(PACKAGES).slice(0, 12)
         : (PACKAGES_TEXT ? PACKAGES_TEXT.split("\n").slice(0, DEBUG_PREVIEW_LINES) : []);
@@ -173,7 +184,7 @@ module.exports = async function (context, req) {
           ok: true,
           debug: true,
           will_call_llm: false,
-          reason: "Azure OpenAI not configured (endpoint/deployment/key missing).",
+          reason: "Azure OpenAI not fully configured (missing endpoint/deployment/key).",
           env: {
             apiVersion,
             endpointPresent: Boolean(endpoint),
