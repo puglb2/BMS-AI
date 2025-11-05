@@ -1,0 +1,71 @@
+# providers.txt — Strata Med starter list (with sample insurances)
+
+prov_001  Michael J. Barber (MD, PhD) – Medical Director  
+roles: Internist, Cardiology, Executive Wellness  
+locations: Both  
+services: Hormone Optimization, Anti-Aging Medicine, Internal Medicine  
+insurance: Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Medicare, Tricare, Cash Pay  
+email: michael.barber@stratawell.com
+
+prov_002  Sheila Bee (MD) – Internal & Lifestyle Medicine  
+roles: Primary Care & Lifestyle Medicine  
+locations: Mesa  
+services: Women’s Health, Thyroid & Metabolic Health, Regenerative Therapies  
+insurance: Aetna, BCBS, Cigna, UHC, Humana, Medicare, Medicaid, Cash Pay  
+email: sheila.bee@stratawell.com
+
+prov_003  Jennifer Habashy (NMD, MS) – Assistant Medical Director  
+roles: Naturopathic Medicine, Functional Wellness  
+locations: Both  
+services: Women’s Health, IV/Regenerative Therapy, Gut Health  
+insurance: BCBS, Cigna, UHC, Aetna, Tricare, Cash Pay  
+email: jennifer.habashy@stratawell.com
+
+prov_004  Celia Campos Seegers (DO) – Physician  
+roles: Primary Care & Women’s Health  
+locations: Interquest  
+services: Bioidentical Hormone Therapy, Thyroid Optimization, Gut Health  
+insurance: Aetna, BCBS, Cigna, UnitedHealthcare, Medicare, Medicaid, Cash Pay  
+email: celia.campos@stratawell.com
+
+prov_005  Kimberley Parker (MSN, APRN, FNP-BC, RNC-OB) – Nurse Practitioner  
+roles: Advanced Practice Nurse, Wellness Optimization  
+locations: Mesa  
+services: Metabolic & Hormone Health, GI Health, Anti-Aging  
+insurance: Aetna, Cigna, UHC, BCBS, Tricare, Humana, Medicare Advantage, Cash Pay  
+email: kimberley.parker@stratawell.com
+
+prov_006  Candice Lynch (ND) – Naturopathic Doctor  
+roles: Naturopathic Medicine  
+locations: Interquest  
+services: Adult Cardiac Echos, IV Placement, Immune Support  
+insurance: BCBS, UHC, Cigna, Aetna, TriWest, Tricare, Self-Pay  
+email: candice.lynch@stratawell.com
+
+prov_007  Angie Barber (RN, BSN) – Wellness Coordinator  
+roles: Registered Nurse, Functional Neurology  
+locations: Mesa  
+services: Myofascial Release, Functional Medicine, Pain Management  
+insurance: BCBS, Cigna, UHC, Medicare, Medicaid, Tricare, Cash Pay  
+email: angie.barber@stratawell.com
+
+prov_008  James Ashley (DC) – Doctor of Chiropractic  
+roles: Chiropractic & Acupuncture  
+locations: Mesa  
+services: Instrument-Assisted Adjusting, Chiropractic Acupuncture, Prenatal Chiropractic  
+insurance: BCBS, Cigna, Aetna, UnitedHealthcare, TriWest, Cash Pay  
+email: james.ashley@stratawell.com
+
+prov_009  Tymbree Baty (DC) – Chiropractic Physician  
+roles: Chiropractic Care  
+locations: Interquest  
+services: Myofascial Release, Trigger Point Therapy, Active Release  
+insurance: BCBS, Cigna, UHC, Aetna, Humana, Tricare, Cash Pay  
+email: tymbree.baty@stratawell.com
+
+prov_010  Micah Sutton (DC) – Doctor of Chiropractic  
+roles: Chiropractic Medicine  
+locations: Mesa  
+services: Structural/Functional Chiropractic, Emotional & GI Health  
+insurance: BCBS, Cigna, Aetna, UHC, Medicare, Tricare, Cash Pay  
+email: micah.sutton@stratawell.com
