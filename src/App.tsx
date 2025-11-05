@@ -25,7 +25,7 @@ function Header() {
       <div>
         <div style={{ fontSize: 16, fontWeight: 700 }}>BMS Assistant</div>
         <div style={{ fontSize: 12, color: "#6b7280" }}>
-          Help choosing memberships and bundles (massage, IV therapy, acupuncture, shockwave).
+          Helping you choose memberships and bundles (massage, IV therapy, acupuncture, shockwave).
         </div>
       </div>
     </div>
@@ -50,7 +50,9 @@ function Bubble({ role, children }: { role: Role; children: React.ReactNode }) {
           border: isUser ? "1px solid #111827" : "1px solid #e5e7eb",
           padding: "10px 12px",
           borderRadius: 12,
-          boxShadow: isUser ? "0 1px 2px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.06)",
+          boxShadow: isUser
+            ? "0 1px 2px rgba(0,0,0,0.15)"
+            : "0 1px 2px rgba(0,0,0,0.06)",
           whiteSpace: "pre-wrap",
           lineHeight: 1.4,
           overflowWrap: "anywhere",
@@ -88,7 +90,7 @@ export default function App() {
     };
   }, []);
 
-  // focus input on mount and when not busy
+  // focus input
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -96,15 +98,13 @@ export default function App() {
     if (!busy) inputRef.current?.focus();
   }, [busy]);
 
-  // auto-scroll to bottom when messages change
+  // auto scroll to bottom
   useEffect(() => {
-    // try scrollIntoView on a sentinel
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    // also nudge the container in case of overflow edge cases
     if (scrollerRef.current) {
       scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, busy]);
 
   async function send() {
     const text = input.trim();
@@ -115,14 +115,16 @@ export default function App() {
     setBusy(true);
 
     try {
-      const history = messages.slice(-34).map((m) => ({ role: m.role, content: m.content }));
+      const history = messages.slice(-34).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
       const res = await fetch("/api/chat?ui=1&debug=1", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history }),
       });
 
-      // show raw error details for debugging (no simulated fallback)
       if (!res.ok) {
         let detail: any = null;
         try {
@@ -155,7 +157,6 @@ export default function App() {
       setMessages((m) => [...m, { role: "assistant", content: `Error: ${msg}` }]);
     } finally {
       setBusy(false);
-      // focus back on the input after send
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }
@@ -207,7 +208,20 @@ export default function App() {
               {m.content}
             </Bubble>
           ))}
-          {/* sentinel for scrollIntoView */}
+
+          {busy && (
+            <div
+              style={{
+                marginTop: 6,
+                color: "#6b7280",
+                fontStyle: "italic",
+                fontSize: 13,
+                paddingLeft: 8,
+              }}
+            >
+              BMS Assistant is typing…
+            </div>
+          )}
           <div ref={endRef} />
         </div>
 
@@ -243,7 +257,7 @@ export default function App() {
                   if (!busy) send();
                 }
               }}
-              placeholder={busy ? "Sending…" : "Type a message"}
+              placeholder={busy ? "Assistant is typing…" : "Type a message"}
               style={{
                 flex: 1,
                 outline: "none",
