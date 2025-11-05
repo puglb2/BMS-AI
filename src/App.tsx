@@ -67,7 +67,7 @@ export default function App() {
     {
       role: "assistant",
       content:
-        "Hi, I’m the BMS Assistant. Tell me what services you’re interested in and I’ll explain memberships and bundles that might fit. Services include: Massages, IV Therapy, Acupuncture, and Shockwave Therapy. If you have any questions, please let me know!" },
+        "Hi, I’m the BMS Assistant. Tell me what services you’re interested in and I’ll explain memberships and bundles that might fit. Services include: Massages, IV Therapy, Acupuncture, and Shockwave Therapy. If you have any questions, please let me know!",
     },
   ]);
   const [input, setInput] = useState("");
