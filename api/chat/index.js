@@ -5,14 +5,14 @@ const fs = require("fs");
 const path = require("path");
 
 // ===== Tunables =====
-const MAX_HISTORY_TURNS = 12;         // shorter history → smaller prompt
+const MAX_HISTORY_TURNS = 20;        // shorter history → smaller prompt
 const DEFAULT_TEMP = 1;              // per your requirement
-const DEFAULT_MAX_TOKENS = 4096;     // you want 2048 cap; we constrain with instructions
+const DEFAULT_MAX_TOKENS = 4096;     // you want 4096 cap; we constrain with instructions
 
 // Dataset prompt budgets (keep prompt small)
-const PKG_CHAR_BUDGET   = 4000;      // ~1.2k chars from packages max
+const PKG_CHAR_BUDGET   = 4000;      // ~4k chars from packages max
 const PKG_LINES_BUDGET  = 30;        // hard cap on package lines
-const PROV_CHAR_BUDGET  = 4000;      // ~1.2k chars from providers max
+const PROV_CHAR_BUDGET  = 4000;      // ~4k chars from providers max
 const PROV_LINES_BUDGET = 36;        // hard cap on provider lines
 
 // Output-length guidance (instructional)
