@@ -4,7 +4,15 @@ import React, { useEffect, useRef, useState } from "react";
 type Role = "user" | "assistant";
 type Msg = { role: Role; content: string };
 
-function Header() {
+function Header({
+  dark,
+  setDark,
+  busy,
+}: {
+  dark: boolean;
+  setDark: (v: boolean) => void;
+  busy: boolean;
+}) {
   return (
     <div
       style={{
@@ -13,12 +21,14 @@ function Header() {
         display: "flex",
         alignItems: "center",
         gap: 14,
-        background:
-          "linear-gradient(135deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.75) 60%, rgba(31,41,55,0.65) 100%)",
+        background: dark
+          ? "linear-gradient(135deg, rgba(2,6,23,0.95) 0%, rgba(2,6,23,0.75) 60%, rgba(15,23,42,0.7) 100%)"
+          : "linear-gradient(135deg, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.75) 60%, rgba(31,41,55,0.65) 100%)",
         color: "#fff",
         borderBottom: "1px solid rgba(255,255,255,0.12)",
       }}
     >
+      {/* App Icon */}
       <div
         style={{
           width: 40,
@@ -38,6 +48,7 @@ function Header() {
         B
       </div>
 
+      {/* Title + Subtitle */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
@@ -62,6 +73,7 @@ function Header() {
         </div>
       </div>
 
+      {/* Live/Busy pill */}
       <div
         style={{
           fontSize: 11,
@@ -70,35 +82,79 @@ function Header() {
           background: "rgba(255,255,255,0.08)",
           border: "1px solid rgba(255,255,255,0.14)",
           userSelect: "none",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          marginRight: 10,
         }}
-        aria-hidden
+        aria-label={busy ? "Assistant busy" : "Assistant live"}
       >
-        Live
+        {busy ? "Working" : "Live"}
         <span
           style={{
             display: "inline-block",
             width: 6,
             height: 6,
-            background: "#34d399",
+            background: busy ? "#f59e0b" : "#34d399",
             borderRadius: "50%",
-            marginLeft: 6,
-            boxShadow: "0 0 0 2px rgba(52,211,153,0.25)",
+            boxShadow: `0 0 0 2px ${
+              busy ? "rgba(245,158,11,0.25)" : "rgba(52,211,153,0.25)"
+            }`,
             verticalAlign: "middle",
           }}
         />
       </div>
+
+      {/* Dark mode switch */}
+      <button
+        onClick={() => setDark(!dark)}
+        title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,0.14)",
+          background: "rgba(255,255,255,0.08)",
+          color: "#fff",
+          cursor: "pointer",
+          fontSize: 12,
+          fontWeight: 600,
+          userSelect: "none",
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 6,
+            background: dark ? "#facc15" : "#60a5fa",
+            boxShadow: dark
+              ? "0 0 0 3px rgba(250,204,21,0.18)"
+              : "0 0 0 3px rgba(96,165,250,0.18)",
+          }}
+        />
+        {dark ? "Dark" : "Light"}
+      </button>
     </div>
   );
 }
 
-function Bubble({ role, children }: { role: Role; children: React.ReactNode }) {
+function Bubble({ role, children, dark }: { role: Role; children: React.ReactNode; dark: boolean }) {
   const isUser = role === "user";
-  const bg = isUser ? "#111827" : "#ffffff";
-  const fg = isUser ? "#ffffff" : "#0f172a";
-  const border = isUser ? "1px solid #0b1220" : "1px solid #e5e7eb";
+  const bg = isUser ? (dark ? "#0b1220" : "#111827") : dark ? "#0f172a" : "#ffffff";
+  const fg = isUser ? "#ffffff" : dark ? "#e5e7eb" : "#0f172a";
+  const border = isUser
+    ? `1px solid ${dark ? "#0b1220" : "#0b1220"}`
+    : `1px solid ${dark ? "rgba(148,163,184,0.18)" : "#e5e7eb"}`;
   const shadow = isUser
     ? "0 8px 18px rgba(2,6,23,0.45)"
+    : dark
+    ? "0 8px 18px rgba(2,6,23,0.35)"
     : "0 6px 14px rgba(15,23,42,0.08)";
+
   return (
     <div
       style={{
@@ -139,6 +195,7 @@ export default function App() {
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dark, setDark] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -226,18 +283,38 @@ export default function App() {
     }
   }
 
+  // theme surfaces
+  const pageBg = dark
+    ? "radial-gradient(1200px 600px at 20% -20%, #0b1220 0%, #0b1220 40%, #0b1220 70%)"
+    : "radial-gradient(1200px 600px at 20% -20%, #e0e7ff 0%, #f5f3ff 40%, #fafafa 70%)";
+
+  const shellBg = dark ? "rgba(15,23,42,0.7)" : "rgba(255,255,255,0.82)";
+  const shellBorder = dark ? "1px solid rgba(148,163,184,0.15)" : "1px solid rgba(15,23,42,0.08)";
+  const shellShadow = dark
+    ? "0 20px 60px rgba(2,6,23,0.65), inset 0 1px 0 rgba(255,255,255,0.06)"
+    : "0 20px 60px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.6)";
+  const chatBg = dark
+    ? "linear-gradient(180deg, rgba(2,6,23,0.85) 0%, rgba(15,23,42,0.9) 100%)"
+    : "linear-gradient(180deg, rgba(249,250,251,0.85) 0%, rgba(255,255,255,0.9) 100%)";
+  const divider = dark ? "1px solid rgba(148,163,184,0.16)" : "1px solid #eef2f7";
+  const inputCardBorder = dark ? "1px solid rgba(148,163,184,0.22)" : "1px solid #e5e7eb";
+  const inputCardBg = dark ? "rgba(15,23,42,0.7)" : "#ffffff";
+  const inputPlaceholder = dark ? "Assistant is typing…" : "Type a message";
+
   return (
     <div
       style={{
-        fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif",
+        fontFamily:
+          "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif",
         height: "100vh",
         overflow: "hidden",
-        background:
-          "radial-gradient(1200px 600px at 20% -20%, #e0e7ff 0%, #f5f3ff 40%, #fafafa 70%)",
+        background: pageBg,
         padding: 12,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
+        color: dark ? "#e5e7eb" : "#0f172a",
+        transition: "background 240ms ease, color 240ms ease",
       }}
     >
       <div
@@ -247,16 +324,16 @@ export default function App() {
           height: "92vh",
           display: "flex",
           flexDirection: "column",
-          background: "rgba(255,255,255,0.82)",
-          border: "1px solid rgba(15,23,42,0.08)",
+          background: shellBg,
+          border: shellBorder,
           borderRadius: 22,
           overflow: "hidden",
-          boxShadow:
-            "0 20px 60px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.6)",
+          boxShadow: shellShadow,
           backdropFilter: "blur(6px)",
+          transition: "background 240ms ease, border 240ms ease, box-shadow 240ms ease",
         }}
       >
-        <Header />
+        <Header dark={dark} setDark={setDark} busy={busy} />
 
         {/* Chat area */}
         <div
@@ -265,14 +342,14 @@ export default function App() {
             flex: 1,
             padding: 20,
             overflowY: "auto",
-            background:
-              "linear-gradient(180deg, rgba(249,250,251,0.85) 0%, rgba(255,255,255,0.9) 100%)",
-            borderTop: "1px solid #eef2f7",
+            background: chatBg,
+            borderTop: divider,
             position: "relative",
+            transition: "background 240ms ease, border-color 240ms ease",
           }}
         >
           {messages.map((m, i) => (
-            <Bubble key={i} role={m.role}>
+            <Bubble key={i} role={m.role} dark={dark}>
               {m.content}
             </Bubble>
           ))}
@@ -281,7 +358,7 @@ export default function App() {
             <div
               style={{
                 marginTop: 8,
-                color: "#6b7280",
+                color: dark ? "#9ca3af" : "#6b7280",
                 fontStyle: "italic",
                 fontSize: 13,
                 paddingLeft: 10,
@@ -293,13 +370,15 @@ export default function App() {
           <div ref={endRef} />
         </div>
 
-        {/* Composer (floating bar look) */}
+        {/* Composer */}
         <div
           style={{
             padding: 14,
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(249,250,251,0.9) 100%)",
-            borderTop: "1px solid rgba(15,23,42,0.08)",
+            background: dark
+              ? "linear-gradient(180deg, rgba(2,6,23,0.8) 0%, rgba(15,23,42,0.86) 100%)"
+              : "linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(249,250,251,0.9) 100%)",
+            borderTop: dark ? "1px solid rgba(148,163,184,0.16)" : "1px solid rgba(15,23,42,0.08)",
+            transition: "background 240ms ease, border-color 240ms ease",
           }}
         >
           <div
@@ -317,12 +396,14 @@ export default function App() {
                 flex: 1,
                 display: "flex",
                 alignItems: "center",
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
+                background: inputCardBg,
+                border: inputCardBorder,
                 borderRadius: 14,
                 padding: "10px 12px",
-                boxShadow:
-                  "0 6px 18px rgba(17,24,39,0.06), inset 0 1px 0 rgba(255,255,255,0.6)",
+                boxShadow: dark
+                  ? "0 6px 18px rgba(2,6,23,0.45)"
+                  : "0 6px 18px rgba(17,24,39,0.06), inset 0 1px 0 rgba(255,255,255,0.6)",
+                transition: "background 240ms ease, border-color 240ms ease, box-shadow 240ms ease",
               }}
             >
               <input
@@ -342,14 +423,15 @@ export default function App() {
                   border: "none",
                   background: "transparent",
                   fontSize: 14,
+                  color: dark ? "#e5e7eb" : "#0f172a",
                 }}
               />
               <span
                 style={{
                   fontSize: 12,
-                  color: "#9ca3af",
+                  color: dark ? "#9ca3af" : "#9ca3af",
                   paddingLeft: 10,
-                  borderLeft: "1px solid #e5e7eb",
+                  borderLeft: dark ? "1px solid rgba(148,163,184,0.22)" : "1px solid #e5e7eb",
                   userSelect: "none",
                 }}
                 title="Press Enter to send"
@@ -367,15 +449,19 @@ export default function App() {
               style={{
                 padding: "10px 16px",
                 borderRadius: 12,
-                border: "1px solid #0b1220",
-                background: busy || !input.trim() ? "#9ca3af" : "#0b1220",
-                color: "#fff",
+                border: dark ? "1px solid #cbd5e1" : "1px solid #0b1220",
+                background: busy || !input.trim() ? "#9ca3af" : dark ? "#e2e8f0" : "#0b1220",
+                color: busy || !input.trim() ? "#fff" : dark ? "#0b1220" : "#fff",
                 cursor: busy || !input.trim() ? "not-allowed" : "pointer",
                 fontWeight: 700,
                 letterSpacing: 0.2,
-                boxShadow: busy
-                  ? "none"
-                  : "0 8px 18px rgba(2,6,23,0.25), inset 0 1px 0 rgba(255,255,255,0.25)",
+                boxShadow:
+                  busy || !input.trim()
+                    ? "none"
+                    : dark
+                    ? "0 8px 18px rgba(2,6,23,0.45), inset 0 1px 0 rgba(255,255,255,0.25)"
+                    : "0 8px 18px rgba(2,6,23,0.25), inset 0 1px 0 rgba(255,255,255,0.25)",
+                transition: "background 240ms ease, color 240ms ease, border-color 240ms ease",
               }}
             >
               Send
