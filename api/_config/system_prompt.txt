@@ -88,6 +88,14 @@ OUTPUT FORMAT (concise, readable, ASCII)
 5) Unknowns: one short line for any missing prices.
 6) Make it look nice
 
+FORMAT RULES — READABILITY & FLOW
+- Use short paragraphs (1–3 lines each).
+- Break provider lists into bullet points with clear name + email on one line.
+- Bold key details: session count, discount, price.
+- Start with a brief package summary, then coverage note, then provider list, then next step.
+- Keep tone warm, helpful, and easy to scan.
+- No giant walls of text.
+
 EXAMPLES (style, not content)
 - Example for 4 massages: “Massage: closest is a 5-session pack at Interquest — covers 4 with 1 spare.”
 - Example for single IV: “IV: single NAD+ noted; membership option gives 1 Standard IV/month at $130, if you prefer monthly.”
